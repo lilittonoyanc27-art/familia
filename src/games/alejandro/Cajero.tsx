@@ -1,0 +1,17 @@
+import { useEffect, useMemo, useState } from 'react';
+import type { GameProps } from '../types';
+import { Btn, Es, Say } from '../../ui/kit';
+import { eur, numEs, pick, rnd } from '../../core/util';
+import { sfx } from '../../core/audio';
+import { speak } from '../../core/speech';
+import { st } from '../../core/store';
+import type { P } from '../../core/types';
+const OPS: P[] = [['Sacar dinero', 'Снять деньги'], ['Ingresar dinero', 'Внести деньги'], ['Consultar el saldo', 'Проверить баланс'], ['Hacer una transferencia', 'Сделать перевод'], ['Pagar una factura', 'Оплатить счёт']];
+/** Игрушечный банкомат: реальные карты и пароли здесь не используются. */
+export default function Cajero({ level, finish }: GameProps) {
+  const N = 6; const tasks = useMemo(() => Array.from({ length: N }, () => { const op = rnd(5), n = level === 'A1' ? (1 + rnd(9)) * 10 : level === 'A2' ? (2 + rnd(48)) * 10 : (10 + rnd(180)) * 5; const T: P[] = [[`Saca ${numEs(n)} euros.`, `Сними ${n} евро.`], [`Ingresa ${numEs(n)} euros.`, `Внеси ${n} евро.`], ['Mira cuánto dinero tienes.', 'Посмотри, сколько у тебя денег.'], [`Envía ${numEs(n)} euros a Elena.`, `Отправь ${n} евро Елене.`], [`Paga la factura de la luz: ${numEs(n)} euros.`, `Оплати счёт за свет: ${n} евро.`]]; return { op, n: op === 2 ? 0 : n, p: T[op] }; }), []);
+  const [i, setI] = useState(0), [op, setOp] = useState<number | null>(null), [v, setV] = useState(''), [bal, setBal] = useState(1200), [bad, setBad] = useState(0), [why, setWhy] = useState(''); const t = tasks[i]; useEffect(() => speak(t.p[0]), [i]);
+  const fail = (w: string) => { sfx('bad'); setBad(b => b + 1); setWhy(w); setOp(null); setV(''); }; const ok = () => { sfx('coin'); st().learn(OPS[t.op][0], OPS[t.op][1]); setBal(b => b + (t.op === 1 ? t.n : -t.n)); setOp(null); setV(''); setWhy(''); if (i + 1 >= N) finish({ score: 100 - bad * 10 }); else setI(i + 1); };
+  return <div className="board2d" style={{ ['--bg' as string]: '#24406f' }}><div className="side" style={{ width: 'min(520px,100%)', maxHeight: 'none' }}><Es p={['El cajero automático', 'Банкомат']} as="h2" /><div style={{ fontSize: 21, fontWeight: 700 }}><Es p={t.p} /> <Say t={t.p[0]} /></div><div style={{ background: '#16324f', color: '#bfe9ff', borderRadius: 14, padding: 16 }}>{op === null ? <div className="col"><Es p={['Elija una operación', 'Выберите операцию']} />{OPS.map((o, k) => <Btn key={k} kind="ghost" p={o} onClick={() => k === t.op ? (k === 2 ? (st().toast([`Saldo: ${eur(bal)}`, `Баланс: ${eur(bal)}`]), ok()) : setOp(k)) : fail(`«${t.p[0]}» — ${t.p[1]} Нужна операция «${OPS[t.op][0]}».`)} />)}</div> : <><Es p={['Escriba la cantidad', 'Введите сумму']} /><h1 style={{ textAlign: 'center', margin: 10 }}>{v || '0'} €</h1><div className="cells" style={{ gridTemplateColumns: 'repeat(3,1fr)', color: '#16324f' }}>{['1', '2', '3', '4', '5', '6', '7', '8', '9', 'C', '0', 'OK'].map(k => <button key={k} type="button" className="cell" style={{ aspectRatio: '2' }} onClick={() => { sfx('click'); if (k === 'C') setV(''); else if (k === 'OK') { if (+v === t.n) ok(); else fail(`Правильная сумма: ${numEs(t.n)} = ${t.n} евро. Введено: ${v || 0}.`); } else if (v.length < 4) { setV(v + k); speak(numEs(+k)); } }}>{k}</button>)}</div></>}</div>{why && <p className="q-res wrong">{why}</p>}<Es p={[`Operación ${i + 1} de ${N}`, `Операция ${i + 1} из ${N}`]} className="mut" /></div></div>;
+}
+void pick;

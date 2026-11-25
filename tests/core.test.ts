@@ -1,0 +1,50 @@
+import { describe, it, expect } from 'vitest';
+import { start, perft, fromFen, moves, make, status, best } from '../src/games/mira/chess';
+import { startD, movesD, applyD } from '../src/games/mira/checkers';
+import { puzzle, okAt } from '../src/games/mira/Sudoku';
+import { winT } from '../src/games/mira/Tres';
+import { place } from '../src/games/mira/Barcos';
+import { makeLogic } from '../src/games/mira/Logica';
+import { build } from '../src/games/mira/Crucigrama';
+import { isWord } from '../src/games/mira/Letras';
+import { makeQuestion } from '../src/core/question';
+import { conj, VERBS } from '../src/data/verbs';
+import { lookup } from '../src/core/lex';
+import { WORDS } from '../src/data/vocab';
+import { numEs } from '../src/core/util';
+import { DIALOGUES } from '../src/data/dialogues';
+import { PHRASES } from '../src/data/phrases';
+import { World, ID } from '../src/games/lev/vgen';
+import { path, near, turn } from '../src/games/alejandro/route';
+import { ROOMS } from '../src/data/interiors';
+import { GAMES } from '../src/games/registry';
+import { MISSIONS } from '../src/data/missions';
+describe('шахматы', () => {
+  it('perft стартовой позиции', () => { const p = start(); expect(perft(p, 1)).toBe(20); expect(perft(p, 2)).toBe(400); expect(perft(p, 3)).toBe(8902); });
+  it('perft Kiwipete (рокировки, взятие на проходе, превращения)', () => { const p = fromFen('r3k2r/p1ppqpb1/bn2pnp1/3PN3/1p2P3/2N2Q1p/PPPBBPPP/R3K2R w KQkq - 0 1'); expect(perft(p, 1)).toBe(48); expect(perft(p, 2)).toBe(2039); });
+  it('perft позиция 3', () => { expect(perft(fromFen('8/2p5/3p4/KP5r/1R3p1k/8/4P1P1/8 w - - 0 1'), 3)).toBe(2812); });
+  it('детский мат и пат', () => { let p = start(); for (const [f, t] of [[52, 36], [12, 28], [61, 34], [1, 18], [59, 31], [6, 21], [31, 13]]) p = make(p, moves(p).find(m => m.f === f && m.t === t)!); expect(status(p)).toBe('mate'); expect(status(fromFen('7k/5Q2/6K1/8/8/8/8/8 b - - 0 1'))).toBe('stale'); });
+  it('компьютер находит мат в один ход', () => { const p = fromFen('6k1/5ppp/8/8/8/8/5PPP/R5K1 w - - 0 1'); const m = best(p, 2)!; expect(status(make(p, m))).toBe('mate'); });
+});
+describe('шашки', () => { it('старт: 7 ходов, взятие обязательно', () => { const b = startD(); expect(movesD(b, true).length).toBe(7); const c = new Int8Array(64); c[45] = 1; c[36] = -1; c[54] = 1; const m = movesD(c, true); expect(m.every(x => x.caps.length)).toBe(true); expect(applyD(c, m[0])[36]).toBe(0); }); });
+describe('логические игры', () => {
+  it('судоку имеет корректное решение', () => { const { s, p } = puzzle(44); expect(p.filter(x => !x).length).toBe(44); s.forEach((v, i) => { const b = [...s]; b[i] = 0; expect(okAt(b, i, v)).toBe(true); }); });
+  it('крестики-нолики', () => { expect(winT([1, 1, 1, 0, 0, 0, 0, 0, 0])).toBe(1); expect(winT([2, 0, 0, 0, 2, 0, 0, 0, 2])).toBe(2); expect(winT(Array(9).fill(0))).toBe(0); });
+  it('морской бой: 5 кораблей без касаний', () => { for (let k = 0; k < 20; k++) { const f = place(); expect(f.flat().length).toBe(14); expect(new Set(f.flat()).size).toBe(14); } });
+  it('логика: единственное решение', () => { for (let k = 0; k < 20; k++) { const L = makeLogic(4); const all: number[][] = []; const pr = (a: number[], r: number[]) => a.length ? a.forEach((x, i) => pr([...a.slice(0, i), ...a.slice(i + 1)], [...r, x])) : all.push(r); pr([0, 1, 2, 3], []); expect(all.filter(s => L.cl.every(c => c.f(s))).length).toBe(1); } });
+  it('кроссворд строится', () => { expect(build(WORDS.filter(w => w.level === 'A1')).length).toBeGreaterThanOrEqual(5); });
+  it('словарь игры в слова', () => { expect(isWord('casa')).toBe(true); expect(isWord('mesa')).toBe(true); expect(isWord('xqz')).toBe(false); });
+});
+describe('язык', () => {
+  it('спряжения', () => { const v = (i: string) => VERBS.find(x => x.inf === i)!; expect(conj(v('hablar'), 'presente')).toEqual(['hablo', 'hablas', 'habla', 'hablamos', 'habláis', 'hablan']); expect(conj(v('comer'), 'indefinido')[3]).toBe('comimos'); expect(conj(v('ir'), 'imperfecto')[0]).toBe('iba'); expect(conj(v('tener'), 'futuro')[0]).toBe('tendré'); expect(conj(v('hacer'), 'perfecto')[1]).toBe('has hecho'); expect(conj(v('vivir'), 'imperfecto')[3]).toBe('vivíamos'); });
+  it('перевод слов по клику', () => { expect(lookup('frigorífico')).toBe('холодильник'); expect(lookup('Tenemos')).toBeTruthy(); expect(lookup('comprar')).toBe('покупать'); expect(lookup('supermercado?')).toBe('супермаркет'); });
+  it('все слова и фразы имеют перевод', () => { WORDS.forEach(w => expect(w.ru, w.es).toBeTruthy()); PHRASES.forEach(p => expect(p.ru, p.es).toBeTruthy()); expect(WORDS.length).toBeGreaterThan(450); });
+  it('генератор вопросов: все типы и уровни', () => { for (const l of ['A1', 'A2', 'B1'] as const) for (const k of ['es-ru', 'ru-es', 'listen', 'cloze', 'order', 'reply', 'verb', 'speak'] as const) for (let i = 0; i < 30; i++) { const q = makeQuestion(l, undefined, k); expect(q.answer).toBeTruthy(); if (q.options) expect(q.options).toContain(q.answer); if (q.tiles) expect([...q.tiles].sort().join(' ')).toBe(q.answer.split(' ').sort().join(' ')); expect(q.why.length).toBeGreaterThan(5); } });
+  it('числа по-испански', () => { expect(numEs(21)).toBe('veintiuno'); expect(numEs(47)).toBe('cuarenta y siete'); expect(numEs(100)).toBe('cien'); expect(numEs(135)).toBe('ciento treinta y cinco'); expect(numEs(2024)).toBe('dos mil veinticuatro'); });
+  it('диалоги: у каждого выбора есть верный вариант и объяснение', () => { expect(DIALOGUES.length).toBeGreaterThan(30); DIALOGUES.forEach(d => d.lines.forEach(l => { if (!Array.isArray(l)) { const a = l as { ask: (readonly [string, string, boolean])[]; why: string }; expect(a.ask.filter(x => x[2]).length, d.id).toBe(1); expect(a.why.length, d.id).toBeGreaterThan(3); } })); });
+});
+describe('мир', () => {
+  it('блочный мир: генерация, сохранение правок, структуры', () => { for (const t of ['bosque', 'desierto', 'islas'] as const) { const w = new World(t); expect(w.top(0, 0)).toBeGreaterThan(2); w.set(0, 30, 0, ID.tablas); expect(w.get(0, 30, 0)).toBe(ID.tablas); expect(w.edits.size).toBe(1); expect(w.get(...w.hidden)).toBe(ID.cofre); expect(w.get(...w.mazeEnd)).toBe(ID.cofre); } });
+  it('маршрут для вождения', () => { const p = path(near(-58, -24), [0, 72]); expect(p.length).toBeGreaterThan(2); for (let i = 1; i < p.length; i++) expect(Math.abs(p[i][0] - p[i - 1][0]) + Math.abs(p[i][1] - p[i - 1][1])).toBe(24); expect(turn([0, 24], [0, 0], [24, 0])).toBe(1); });
+  it('все игры интерьеров, миссий и меню существуют', () => { const ids = new Set(GAMES.map(g => g.id)); ROOMS.forEach(r => r.acts.forEach(a => { if (!a.game.startsWith('@')) expect(ids.has(a.game), a.game).toBe(true); })); MISSIONS.forEach(m => m.steps.forEach(s => expect(ids.has(s.game), s.game).toBe(true))); });
+});

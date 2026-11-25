@@ -1,0 +1,23 @@
+import * as T from 'three';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { StageView, lookFor, type Stage } from '../../three/stage';
+import { Character, npcLook } from '../../three/character';
+import { B, mesh } from '../../three/geo';
+import { prop } from '../../three/props';
+import { makeQuestion, type Question, type QKind } from '../../core/question';
+import type { GameProps } from '../types';
+import { Bar, Btn, Es, Modal, QuestionCard, Say } from '../../ui/kit';
+import { speak } from '../../core/speech';
+import { sfx } from '../../core/audio';
+import { pick } from '../../core/util';
+import { TENSES, VERBS, conj, PERSONS } from '../../data/verbs';
+import { LEVELS, type P } from '../../core/types';
+const PR: P[] = [['¡Muy bien! Siéntate.', 'Отлично! Садись.'], ['Perfecto, sigue así.', 'Прекрасно, так держать.'], ['Muy buena respuesta.', 'Очень хороший ответ.']];
+export default function Clase({ level, me, finish }: GameProps) {
+  const ts = useMemo(() => pick(TENSES.filter(t => LEVELS.indexOf(t.level) <= LEVELS.indexOf(level))), []), vb = useMemo(() => pick(VERBS.filter(v => LEVELS.indexOf(v.level) <= LEVELS.indexOf(level))), []); const N = 8; const [i, setI] = useState(-1), [ok, setOk] = useState(0), [hand, setHand] = useState(false), [q, setQ] = useState<Question | null>(null), [say, setSay] = useState<P>(['¡Buenos días, clase! Hoy estudiamos un tiempo verbal.', 'Доброе утро, класс! Сегодня изучаем время глагола.']); const t = useRef<Character | null>(null), m = useRef<Character | null>(null);
+  useEffect(() => { speak(say[0]); if (t.current) t.current.talk = 2.4; }, [say]);
+  const setup = (s: Stage) => { s.scene.background = new T.Color('#f2e4c4'); s.hemi.intensity = 1.6; s.control = false; s.noOrbit = true; s.sun.position.set(6, 10, 6); s.setShadow(12); const aim = () => { const w = s.camera.aspect < 1; s.camera.position.set(1.4, 3.2, w ? 10.5 : 7.4); s.camera.lookAt(.3, 1.3, -1); }; s.onResize = aim; aim(); s.scene.add(mesh([B(18, .2, 18, '#dcc59a', 0, -.1, 0), B(18, 6, .2, '#f5ecd4', 0, 3, -4.4), B(.2, 6, 18, '#efe0bc', -7, 3, 0)])); const pz = prop('pizarra', 1.7); pz.position.set(0, 0, -4.2); s.scene.add(pz); const gl = prop('globo_terraqueo', 1.6); gl.position.set(3.6, 0, -3.4); s.scene.add(gl); const es = prop('estanteria'); es.position.set(5.4, 0, -4); s.scene.add(es); const te = new Character(npcLook(4, { glasses: true })); te.root.position.set(-1.6, 0, -2.6); s.scene.add(te.root); t.current = te; for (let r = 0; r < 2; r++) for (let k = 0; k < 4; k++) { const x = -3.6 + k * 2.2, z = 1 + r * 2; const p = prop('pupitre'); p.position.set(x, 0, z); p.rotation.y = 0; s.scene.add(p); const my = r === 1 && k === 2; const c = new Character(my ? lookFor(me) : npcLook(80 + r * 4 + k, { h: 1.32 })); c.sit = true; c.root.position.set(x, .06, z + .62); c.root.rotation.y = Math.PI; s.scene.add(c.root); if (my) m.current = c; s.upd.push(d => c.update(d)); } s.upd.push(d => { te.update(d); te.root.rotation.y = .3 + Math.sin(s.t * .5) * .3; }); };
+  const nextQ = () => { setHand(false); setQ(null); const n = i + 1; if (n >= N) { finish({ score: ok / N * 100 }); return; } setI(n); };
+  const raise = () => { setHand(true); sfx('pop'); if (m.current) m.current.wave = 1.6; speak('¡Yo, profesora!'); setTimeout(() => setQ(makeQuestion(level, i > 4 ? 'escuela' : undefined, i < 4 ? 'verb' : pick<QKind>(['reply', 'order', 'cloze', 'speak']), i < 4 ? ts.id : undefined)), 700); };
+  return <StageView setup={setup} joy={false} prompt={false}>{() => <><div className="goal"><Es p={[`Tema: ${ts.es}`, `Тема: ${ts.ru}`]} as="h3" /><Bar v={Math.max(0, i) / N} /><p style={{ fontSize: 18 }}><Es p={say} /> <Say t={say[0]} s={18} /></p><details open={i === -1}><summary><Es p={['En la pizarra', 'На доске']} /></summary><p className="mut">{ts.rule}</p><b>{vb.inf}</b> — {vb.ru}<table className="t"><tbody>{conj(vb, ts.id).map((f, k) => <tr key={k}><td>{PERSONS[k][0]}</td><td><Es p={[f, `${PERSONS[k][1]} — ${vb.ru}`]} /></td></tr>)}</tbody></table></details></div><div className="prompt">{i === -1 ? <Btn kind="main" p={['Empezar la clase', 'Начать урок']} onClick={() => { setI(0); setSay(['¿Quién quiere responder?', 'Кто хочет ответить?']); }} /> : !hand && <><Btn kind="main" icon="hand" p={['Levantar la mano', 'Поднять руку']} onClick={raise} /><Btn p={['¿Puede repetir, por favor?', 'Повторите, пожалуйста?']} onClick={() => speak(say[0], true)} /></>}</div>{q && <Modal title={['La profesora pregunta', 'Учительница спрашивает']}><QuestionCard q={q} onDone={k => { if (k) { setOk(ok + 1); setSay(pick(PR)); } else setSay(['No pasa nada. Inténtalo otra vez.', 'Ничего страшного. Попробуй ещё раз.']); nextQ(); }} /></Modal>}</>}</StageView>;
+}

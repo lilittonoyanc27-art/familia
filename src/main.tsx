@@ -1,0 +1,11 @@
+import { createRoot } from 'react-dom/client';
+import '@fontsource-variable/nunito';
+import '@fontsource/yeseva-one';
+import './styles.css';
+import App from './App';
+import { useStore } from './core/store';
+import { memberOf } from './core/types';
+const setColor = () => document.documentElement.style.setProperty('--me', memberOf(useStore.getState().me).color); setColor(); useStore.subscribe(setColor);
+if (matchMedia('(pointer:coarse)').matches) document.body.classList.add('touch');
+document.addEventListener('gesturestart', e => e.preventDefault());
+createRoot(document.getElementById('root')!).render(<App />);

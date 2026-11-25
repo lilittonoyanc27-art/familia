@@ -1,0 +1,12 @@
+export const rnd = (n: number) => Math.floor(Math.random() * n);
+export const pick = <T,>(a: readonly T[]): T => a[rnd(a.length)];
+export const shuffle = <T,>(a: readonly T[]): T[] => { const b = [...a]; for (let i = b.length - 1; i > 0; i--) { const j = rnd(i + 1); [b[i], b[j]] = [b[j], b[i]]; } return b; };
+export const sample = <T,>(a: readonly T[], n: number) => shuffle(a).slice(0, n);
+export const clamp = (x: number, a: number, b: number) => Math.max(a, Math.min(b, x));
+export const mulberry = (s: number) => () => { s |= 0; s = s + 0x6D2B79F5 | 0; let t = Math.imul(s ^ s >>> 15, 1 | s); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; };
+export const today = () => { const d = new Date(); return `${d.getFullYear()}-${d.getMonth() + 1}-${d.getDate()}`; };
+export const eur = (n: number) => n.toFixed(2).replace('.', ',') + ' €';
+const U = 'cero uno dos tres cuatro cinco seis siete ocho nueve diez once doce trece catorce quince dieciséis diecisiete dieciocho diecinueve veinte veintiuno veintidós veintitrés veinticuatro veinticinco veintiséis veintisiete veintiocho veintinueve'.split(' ');
+const D = ',,,treinta,cuarenta,cincuenta,sesenta,setenta,ochenta,noventa'.split(',');
+const H = ',ciento,doscientos,trescientos,cuatrocientos,quinientos,seiscientos,setecientos,ochocientos,novecientos'.split(',');
+export const numEs = (n: number): string => n < 0 ? 'menos ' + numEs(-n) : n < 30 ? U[n] : n < 100 ? D[n / 10 | 0] + (n % 10 ? ' y ' + U[n % 10] : '') : n === 100 ? 'cien' : n < 1000 ? H[n / 100 | 0] + (n % 100 ? ' ' + numEs(n % 100) : '') : (n < 2000 ? 'mil' : numEs(n / 1000 | 0) + ' mil') + (n % 1000 ? ' ' + numEs(n % 1000) : '');
